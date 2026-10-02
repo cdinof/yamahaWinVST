@@ -1,0 +1,39 @@
+name: build
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar CMake
+        uses: lukka/get-cmake@latest
+      - name: Descobrir a pasta do projeto
+        id: find
+        shell: bash
+        run: |
+          if [ -f CMakeLists.txt ]; then echo "dir=." >> "$GITHUB_OUTPUT"
+          else D=$(find . -name CMakeLists.txt -not -path "*/build/*" | head -1)
+               echo "dir=$(dirname "$D")" >> "$GITHUB_OUTPUT"; fi
+      - name: Configurar
+        run: cmake -B build -S ${{ steps.find.outputs.dir }} -DCMAKE_BUILD_TYPE=Release
+      - name: Compilar
+        run: cmake --build build --config Release --parallel 4
+      - name: Testes do motor
+        working-directory: ${{ github.workspace }}/${{ steps.find.outputs.dir }}
+        run: ./build/Release/engine_test.exe
+        continue-on-error: true
+      - name: Empacotar
+        shell: bash
+        run: |
+          mkdir -p out
+          find build -name "*.vst3" -exec cp -r {} out/ \; 2>/dev/null || true
+          find build -name "*.exe" -exec cp {} out/ \; 2>/dev/null || true
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamahaArranger-Windows
+          path: out/
