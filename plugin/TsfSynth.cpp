@@ -12,14 +12,23 @@ TsfSynth::~TsfSynth() {
   if (soundFont_) tsf_close(soundFont_);
 }
 
+void TsfSynth::applyOutputMode() {
+  if (!soundFont_) return;
+  // tsf_set_output define o modo de saída E a taxa de amostragem.
+  // A profundidade (float) é definida pela função de render usada
+  // (tsf_render_float).
+  tsf_set_output(soundFont_, TSF_STEREO_INTERLEAVED,
+                 static_cast<int>(sampleRate_ + 0.5f), 0.0f);
+  tsf_set_volume(soundFont_, volume_);
+}
+
 bool TsfSynth::loadFile(const std::string& path) {
   tsf* s = tsf_load_filename(path.c_str());
   if (!s) return false;
   if (soundFont_) tsf_close(soundFont_);
   soundFont_ = s;
-  tsf_set_output(soundFont_, TSF_STEREO_INTERLEAVED, TSF_FLOAT, 0);
-  tsf_set_sample_rate(soundFont_, sampleRate_);
-  tsf_set_volume(soundFont_, volume_);
+  applyOutputMode();
+  setupChannels();
   return true;
 }
 
@@ -28,15 +37,25 @@ bool TsfSynth::loadMemory(const void* data, size_t size) {
   if (!s) return false;
   if (soundFont_) tsf_close(soundFont_);
   soundFont_ = s;
-  tsf_set_output(soundFont_, TSF_STEREO_INTERLEAVED, TSF_FLOAT, 0);
-  tsf_set_sample_rate(soundFont_, sampleRate_);
-  tsf_set_volume(soundFont_, volume_);
+  applyOutputMode();
+  setupChannels();
   return true;
+}
+
+/// Distribui os presets do SoundFont pelos canais (aproximação GM) e marca o
+/// canal 10 (índice 9) como bateria. Os Program Changes do estilo corrigem
+/// isso depois, via setProgram().
+void TsfSynth::setupChannels() {
+  if (!soundFont_) return;
+  for (int ch = 0; ch < 16; ++ch) {
+    const int isDrums = (ch == 9) ? 1 : 0;
+    tsf_channel_set_presetnumber(soundFont_, ch, isDrums ? 0 : ch, isDrums);
+  }
 }
 
 void TsfSynth::setSampleRate(float sampleRate) {
   sampleRate_ = sampleRate;
-  if (soundFont_) tsf_set_sample_rate(soundFont_, sampleRate);
+  applyOutputMode();
 }
 
 void TsfSynth::setVolume(float v01) {
@@ -44,13 +63,21 @@ void TsfSynth::setVolume(float v01) {
   if (soundFont_) tsf_set_volume(soundFont_, volume_);
 }
 
-void TsfSynth::setReverb(float v01) {
-  if (!soundFont_) return;
-  tsf_reverb_setup(soundFont_, 0.3f, v01, 0.6f);
+void TsfSynth::setReverb(float) {
+  // TinySoundFont não implementa reverb/chorus (os geradores de efeito do SF2
+  // não são suportados). O knob fica reservado para uma implementação futura.
 }
 
-void TsfSynth::setChorus(float) {
-  // TinySoundFont não implementa chorus; fica como no-op (reservado).
+void TsfSynth::setProgram(int channel0Based, int program) {
+  if (!soundFont_) return;
+  int ch = channel0Based;
+  if (ch < 0) ch = 0;
+  if (ch > 15) ch = 15;
+  int p = program;
+  if (p < 0) p = 0;
+  if (p > 127) p = 127;
+  const int isDrums = (ch == 9) ? 1 : 0;
+  tsf_channel_set_presetnumber(soundFont_, ch, p, isDrums);
 }
 
 void TsfSynth::noteOn(int channel0Based, int note, int velocity) {
@@ -58,13 +85,13 @@ void TsfSynth::noteOn(int channel0Based, int note, int velocity) {
   int ch = channel0Based;
   if (ch < 0) ch = 0;
   if (ch > 15) ch = 15;
-  if (note < 0) note = 0;
-  if (note > 127) note = 127;
-  if (velocity < 1) velocity = 1;
-  if (velocity > 127) velocity = 127;
-  tsf_channel_midi_control(soundFont_, ch, 7, 100, 0); // volume do canal
-  tsf_note_on(soundFont_, ch, static_cast<unsigned char>(note),
-              static_cast<float>(velocity) / 127.0f);
+  int n = note;
+  if (n < 0) n = 0;
+  if (n > 127) n = 127;
+  int v = velocity;
+  if (v < 1) v = 1;
+  if (v > 127) v = 127;
+  tsf_channel_note_on(soundFont_, ch, n, static_cast<float>(v) / 127.0f);
 }
 
 void TsfSynth::noteOff(int channel0Based, int note) {
@@ -73,12 +100,15 @@ void TsfSynth::noteOff(int channel0Based, int note) {
   if (ch < 0) ch = 0;
   if (ch > 15) ch = 15;
   if (note < 0 || note > 127) return;
-  tsf_note_off(soundFont_, ch, static_cast<unsigned char>(note));
+  tsf_channel_note_off(soundFont_, ch, note);
 }
 
 void TsfSynth::allOff() {
   if (!soundFont_) return;
-  for (int ch = 0; ch < 16; ++ch) tsf_channel_note_off_all(soundFont_, ch);
+  for (int ch = 0; ch < 16; ++ch) {
+    tsf_channel_note_off_all(soundFont_, ch);
+    tsf_channel_sounds_off_all(soundFont_, ch);
+  }
 }
 
 void TsfSynth::setChannelVolume(int channel0Based, int value) {
@@ -89,7 +119,7 @@ void TsfSynth::setChannelVolume(int channel0Based, int value) {
   int v = value;
   if (v < 0) v = 0;
   if (v > 127) v = 127;
-  tsf_channel_midi_control(soundFont_, ch, 7, static_cast<unsigned short>(v), 0);
+  tsf_channel_midi_control(soundFont_, ch, 7, v);
 }
 
 void TsfSynth::renderInterleaved(float* out, int frames) {
@@ -98,7 +128,7 @@ void TsfSynth::renderInterleaved(float* out, int frames) {
     return;
   }
   tsf_render_float(soundFont_, out, frames, 0);
-  // Segurança: sem estouro.
+  // Segurança contra estouro.
   const int n = frames * 2;
   for (int i = 0; i < n; ++i) {
     if (out[i] > 1.0f) out[i] = 1.0f;

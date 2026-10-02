@@ -7,7 +7,9 @@
 #include <memory>
 #include <vector>
 
+#include "../engine/ChordDetector.h"
 #include "../engine/StylePlayer.h"
+#include "../engine/StyParser.h"
 #include "TsfSynth.h"
 
 namespace yamaha {

@@ -33,21 +33,19 @@ YamahaArrangerEditor::~YamahaArrangerEditor() { stopTimer(); }
 
 void YamahaArrangerEditor::buildUi() {
   // ---- display ----
-  lcd_.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 22.0f,
-                          juce::Font::bold));
+  lcd_.setFont(juce::Font(juce::FontOptions(22.0f, juce::Font::bold)));
   lcd_.setColour(juce::Label::backgroundColourId, lcdBg);
   lcd_.setColour(juce::Label::textColourId, lcdFg);
   lcd_.setJustificationType(juce::Justification::centred);
   addAndMakeVisible(lcd_);
 
-  lcdSmall_.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 13.0f,
-                               juce::Font::plain));
+  lcdSmall_.setFont(juce::Font(juce::FontOptions(13.0f)));
   lcdSmall_.setColour(juce::Label::backgroundColourId, lcdBg);
   lcdSmall_.setColour(juce::Label::textColourId, lcdFg.withAlpha(0.85f));
   lcdSmall_.setJustificationType(juce::Justification::centred);
   addAndMakeVisible(lcdSmall_);
 
-  status_.setFont(juce::Font(12.0f));
+  status_.setFont(juce::Font(juce::FontOptions(12.0f)));
   status_.setColour(juce::Label::textColourId, textDim);
   status_.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(status_);
@@ -107,7 +105,7 @@ void YamahaArrangerEditor::buildUi() {
     s.setValue(value, juce::dontSendNotification);
     s.setColour(juce::Slider::rotarySliderFillColourId, accent);
     s.setColour(juce::Slider::thumbColourId, juce::Colours::white);
-    l.setFont(juce::Font(11.0f));
+    l.setFont(juce::Font(juce::FontOptions(11.0f)));
     l.setColour(juce::Label::textColourId, textDim);
     l.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(s);

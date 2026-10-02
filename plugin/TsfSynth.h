@@ -23,8 +23,10 @@ class TsfSynth {
 
   void setSampleRate(float sampleRate);
   void setVolume(float v01);  // 0..1
-  void setReverb(float v01);  // 0..1
-  void setChorus(float v01);  // 0..1
+  void setReverb(float v01);  // reservado (tsf não implementa efeitos)
+
+  /// Program Change do estilo: escolhe o instrumento do canal.
+  void setProgram(int channel0Based, int program);
 
   void noteOn(int channel0Based, int note, int velocity);
   void noteOff(int channel0Based, int note);
@@ -37,6 +39,9 @@ class TsfSynth {
   bool hasSoundFont() const { return soundFont_ != nullptr; }
 
  private:
+  void applyOutputMode();
+  void setupChannels();
+
   tsf* soundFont_ = nullptr;
   float sampleRate_ = 44100.0f;
   float volume_ = 0.8f;

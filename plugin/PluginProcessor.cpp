@@ -162,11 +162,13 @@ void YamahaArrangerProcessor::handleIncomingMidi(const juce::MidiBuffer& midi,
       synth_.noteOn(e.channel, e.data1, e.data2);
     } else if (type == 0x80 || (type == 0x90 && e.data2 == 0)) {
       synth_.noteOff(e.channel, e.data1);
+    } else if (type == 0xC0) {
+      // Program Change do estilo: escolhe o instrumento da parte.
+      synth_.setProgram(e.channel, e.data1);
     } else if (type == 0xB0 && e.data1 == 7) {
       synth_.setChannelVolume(e.channel, e.data2);
     }
-    // Program Change / Pitch Bend: o TinySoundFont não os implementa; os sons
-    // já vêm definidos pelo SoundFont em cada canal.
+    // Pitch Bend: o TinySoundFont não o implementa por evento.
   }
 }
 
@@ -187,8 +189,8 @@ void YamahaArrangerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   double endPpq = lastPpq_;
 
   bool haveHostPpq = false;
-  if (auto* playHead = getPlayHead()) {
-    if (auto pos = playHead->getPosition()) {
+  if (auto* head = getPlayHead()) {
+    if (auto pos = head->getPosition()) {
       if (pos->getPpqPosition().hasValue()) {
         haveHostPpq = true;
         startPpq = *pos->getPpqPosition();
