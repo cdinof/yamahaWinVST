@@ -38,7 +38,6 @@ juce_generate_juce_header(YamahaArranger)
 
 target_sources(YamahaArranger
   PRIVATE
-    engine/Chord.cpp
     engine/ChordDetector.cpp
     engine/ChordTransposer.cpp
     engine/StyParser.cpp
@@ -71,7 +70,6 @@ target_link_libraries(YamahaArranger
 # ---------------------------------------------------------------------------
 add_executable(engine_test
   tests/engine_test.cpp
-  engine/Chord.cpp
   engine/ChordDetector.cpp
   engine/ChordTransposer.cpp
   engine/StyParser.cpp
