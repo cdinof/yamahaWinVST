@@ -25,14 +25,14 @@ FetchContent_MakeAvailable(JUCE)
 # ---------------------------------------------------------------------------
 juce_add_plugin(YamahaArranger
   VERSION                1.0.0
-  COMPANY_NAME           "Yamaha Arranger"
+  COMPANY_NAME           "yamahaarranger"
   COMPANY_COPYRIGHT      "MIT"
+  BUNDLE_ID              "com.yamahaarranger.plugin"
   FORMATS                VST3 Standalone
   PRODUCT_NAME           "Yamaha Arranger"
   IS_SYNTH               TRUE
   NEEDS_MIDI_INPUT       TRUE
-  EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-  VST3_COPY_DIR          "$ENV{HOME}/.vst3")
+  EDITOR_WANTS_KEYBOARD_FOCUS FALSE)
 
 juce_generate_juce_header(YamahaArranger)
 

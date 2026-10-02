@@ -1,4 +1,8 @@
 name: build
+
+# Compila o plugin automaticamente na nuvem e entrega pronto para baixar.
+# Funciona com os arquivos na RAIZ ou dentro de uma subpasta.
+
 on:
   push:
     branches: [main, master]
@@ -7,6 +11,68 @@ on:
 jobs:
   windows:
     runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------------
+      # DIAGNOSTICO: mostra no log EXATAMENTE quais arquivos existem no
+      # repositorio. Se faltar algum .cpp, aparece aqui.
+      # ---------------------------------------------------------------------
+      - name: DIAGNOSTICO - listar arquivos
+        shell: bash
+        run: |
+          echo "======== ARQUIVOS NO REPOSITORIO ========"
+          find . -type f -not -path "./.git/*" | sort
+          echo "======== engine/ ========"
+          ls -la engine/ 2>/dev/null || echo ">>> PASTA engine/ NAO EXISTE"
+          echo "======== plugin/ ========"
+          ls -la plugin/ 2>/dev/null || echo ">>> PASTA plugin/ NAO EXISTE"
+          echo "======== third_party/ ========"
+          ls -la third_party/ 2>/dev/null || echo ">>> PASTA third_party/ NAO EXISTE"
+          echo "=========================================="
+
+      - name: Instalar CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Descobrir a pasta do projeto
+        id: find
+        shell: bash
+        run: |
+          if [ -f CMakeLists.txt ]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+          else
+            D=$(find . -name CMakeLists.txt -not -path "*/build/*" | head -1)
+            echo "dir=$(dirname "$D")" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Projeto em: '${{ steps.find.outputs.dir }}'"
+
+      - name: Configurar
+        run: cmake -B build -S ${{ steps.find.outputs.dir }} -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compilar
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Rodar testes do motor
+        working-directory: ${{ github.workspace }}/${{ steps.find.outputs.dir }}
+        run: ./build/Release/engine_test.exe
+        continue-on-error: true
+
+      - name: Empacotar artefatos
+        shell: bash
+        run: |
+          mkdir -p out
+          find build -name "*.vst3" -exec cp -r {} out/ \; 2>/dev/null || true
+          find build -name "*.exe" -exec cp {} out/ \; 2>/dev/null || true
+          echo "Conteudo do pacote:"; ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamahaArranger-Windows
+          path: out/
+          if-no-files-found: warn
+
+  macos:
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Instalar CMake
@@ -21,19 +87,15 @@ jobs:
       - name: Configurar
         run: cmake -B build -S ${{ steps.find.outputs.dir }} -DCMAKE_BUILD_TYPE=Release
       - name: Compilar
-        run: cmake --build build --config Release --parallel 4
-      - name: Testes do motor
-        working-directory: ${{ github.workspace }}/${{ steps.find.outputs.dir }}
-        run: ./build/Release/engine_test.exe
-        continue-on-error: true
+        run: cmake --build build --config Release --parallel 3
       - name: Empacotar
         shell: bash
         run: |
           mkdir -p out
           find build -name "*.vst3" -exec cp -r {} out/ \; 2>/dev/null || true
-          find build -name "*.exe" -exec cp {} out/ \; 2>/dev/null || true
-          ls -la out
+          find build -name "*.app" -exec cp -r {} out/ \; 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         with:
-          name: YamahaArranger-Windows
+          name: YamahaArranger-macOS
           path: out/
+          if-no-files-found: warn
